@@ -40,9 +40,10 @@ end cdc_cross;
 
 architecture Behavioral of cdc_cross is
     signal input_async: STD_LOGIC_VECTOR (vector_width-1  downto 0);
+    signal input_sync: STD_LOGIC_VECTOR (vector_width-1 downto 0);
     attribute ASYNC_REG : string;
     attribute ASYNC_REG of input_async: signal is "TRUE";
-    signal input_sync: STD_LOGIC_VECTOR (vector_width-1 downto 0);
+    attribute ASYNC_REG of input_sync: signal is "TRUE";
 begin
     process(clk_new) is
     begin
