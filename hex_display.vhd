@@ -83,7 +83,7 @@ architecture Behavioral of hex_display is
     end case;
     end;
 begin
-    clk_div:process(clk) is
+    clk_div:process(clk, enable) is
     begin
         if enable = '0' then
             clk_counter <= (others => '0');
