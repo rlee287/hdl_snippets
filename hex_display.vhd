@@ -26,19 +26,21 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
 entity hex_display is
-    Generic ( clk_rollover : natural := 13 );
+    Generic ( clk_rollover : natural := 13;
+              output_count : natural := 4;
+              enable_dp : boolean := true);
     Port ( clk : in STD_LOGIC;
            enable: in STD_LOGIC := '1';
-           data : in STD_LOGIC_VECTOR (15 downto 0);
-           dp_arr : in STD_LOGIC_VECTOR (3 downto 0);
+           data : in STD_LOGIC_VECTOR (4*output_count-1 downto 0);
+           dp_arr : in STD_LOGIC_VECTOR (output_count-1 downto 0);
            segments : out STD_LOGIC_VECTOR (6 downto 0);
-           anodes : out STD_LOGIC_VECTOR (3 downto 0);
+           anodes : out STD_LOGIC_VECTOR (output_count-1 downto 0);
            dp : out STD_LOGIC);
 end hex_display;
 
 architecture Behavioral of hex_display is
-    signal current_active_segment : BIT_VECTOR (3 downto 0) := "1110";
-    signal clk_counter : UNSIGNED (15 downto 0) := (others => '0');
+    signal current_active_segment : natural range 0 to output_count-1 := 0;
+    signal clk_counter : UNSIGNED (clk_rollover downto 0) := (others => '0');
     signal prev_bit : STD_LOGIC := '0';
     
     pure function map_hex (data_val : in STD_LOGIC_VECTOR(3 downto 0))
@@ -92,36 +94,39 @@ begin
         end if;
     end process;
     
-    process(clk, enable) is
-        variable active_segment_loc: natural range 0 to 3;
+    prev_bit_tracking: process(clk, enable) is
     begin
         if enable = '0' then
+            prev_bit <= '0';
+        elsif rising_edge(clk) then
+            prev_bit <= clk_counter(CLK_ROLLOVER);
+        end if;
+    end process;
+
+    main_7seg_driver: process(clk, enable) is
+    begin
+        if enable = '0' then
+            current_active_segment <= 0;
             segments <= (others => '1');
             anodes <= (others => '1');
             dp <= '1';
-            prev_bit <= '0';
         elsif rising_edge(clk) then
             if clk_counter(CLK_ROLLOVER) = '1' and prev_bit = '0' then
-                if current_active_segment = "1110" then
-                    segments <= map_hex(data(3 downto 0));
-                    active_segment_loc := 0;
-                elsif current_active_segment = "1101" then
-                    segments <= map_hex(data(7 downto 4));
-                    active_segment_loc := 1;
-                elsif current_active_segment = "1011" then
-                    segments <= map_hex(data(11 downto 8));
-                    active_segment_loc := 2;
-                elsif current_active_segment = "0111" then
-                    segments <= map_hex(data(15 downto 12));
-                    active_segment_loc := 3;
-                else 
-                    segments <= "0001001";
+                segments <= map_hex(data(4*current_active_segment+3 downto 4*current_active_segment));
+                -- default is segments <= "0001001";
+                anodes <= (others => '1');
+                anodes(current_active_segment) <= '0';
+                if enable_dp then
+                    dp <= not dp_arr(current_active_segment);
+                else
+                    dp <= '1';
                 end if;
-                anodes <= to_stdlogicvector(current_active_segment);
-                dp <= not dp_arr(active_segment_loc);
-                current_active_segment <= current_active_segment rol 1;
+                if current_active_segment = output_count-1 then
+                    current_active_segment <= 0;
+                else
+                    current_active_segment <= current_active_segment + 1;
+                end if;
             end if;
-            prev_bit <= clk_counter(CLK_ROLLOVER);
         end if;
     end process;
 end Behavioral;
