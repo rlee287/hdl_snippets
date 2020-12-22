@@ -31,26 +31,44 @@ use IEEE.STD_LOGIC_1164.ALL;
 --library UNISIM;
 --use UNISIM.VComponents.all;
 
+-- vector_width > 1 only works correctly for Gray-coded vectors
 entity cdc_cross is
-    Generic (vector_width: natural := 1);
-    Port ( clk_new : in STD_LOGIC;
+    Generic ( vector_width: natural := 1;
+              bypass_src_reg: boolean := false);
+    Port ( clk_old : in STD_LOGIC;
+           clk_new : in STD_LOGIC;
            async_in : in STD_LOGIC_VECTOR (vector_width-1 downto 0);
            sync_out : out STD_LOGIC_VECTOR (vector_width-1 downto 0));
 end cdc_cross;
 
 architecture Behavioral of cdc_cross is
-    signal input_async: STD_LOGIC_VECTOR (vector_width-1  downto 0);
-    signal input_sync: STD_LOGIC_VECTOR (vector_width-1 downto 0);
+    signal old_stable: STD_LOGIC_VECTOR (vector_width-1 downto 0);
+    signal new_metastable: STD_LOGIC_VECTOR (vector_width-1  downto 0);
+    signal new_stable: STD_LOGIC_VECTOR (vector_width-1 downto 0);
     attribute ASYNC_REG : string;
-    attribute ASYNC_REG of input_async: signal is "TRUE";
-    attribute ASYNC_REG of input_sync: signal is "TRUE";
+    attribute ASYNC_REG of old_stable: signal is "TRUE";
+    attribute ASYNC_REG of new_metastable: signal is "TRUE";
+    attribute ASYNC_REG of new_stable: signal is "TRUE";
 begin
-    process(clk_new) is
+    src_reg_gen: if not bypass_src_reg generate
+    process(clk_old) is
     begin
-        if rising_edge(clk_new) then
-            input_async <= async_in;
-            input_sync <= input_async;
+        if rising_edge(clk_old) then
+            old_stable <= async_in;
         end if;
     end process;
-    sync_out <= input_sync;
+    end generate;
+
+    src_wire_gen: if bypass_src_reg generate
+    old_stable <= async_in;
+    end generate;
+
+    cdc_dest_regs: process(clk_new) is
+    begin
+        if rising_edge(clk_new) then
+            new_metastable <= old_stable;
+            new_stable <= new_metastable;
+        end if;
+    end process;
+    sync_out <= new_stable;
 end Behavioral;
